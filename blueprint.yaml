@@ -56,8 +56,7 @@ action:
             entity_id: !input manual_boolean
             state: "on"
         sequence:
-          - service: light.turn_on
-            target: !input light_target
+          - stop: ""
       
       # Szenario 2: Manueller Modus ist AUS -> Normale Bewegungsmelder-Logik
       - conditions:
