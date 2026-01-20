@@ -1,0 +1,87 @@
+blueprint:
+  name: Lichtsteuerung mit Bewegungsmelder & Manellem Override
+  description: >
+    Steuert ein Licht basierend auf einem Bewegungsmelder. 
+    Ein 'Manueller Modus' (Input Boolean) hat Vorrang: 
+    Ist dieser AN, bleibt das Licht dauerhaft AN. 
+    Ist dieser AUS, läuft das Licht über den Bewegungsmelder inkl. Ausschaltverzögerung.
+  domain: automation
+  input:
+    motion_sensor:
+      name: Bewegungsmelder
+      description: Der Sensor, der Bewegungen erkennt.
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: motion
+    manual_boolean:
+      name: Manueller Schalter (Input Boolean)
+      description: Wenn dieser Helfer "An" ist, bleibt das Licht dauerhaft an.
+      selector:
+        entity:
+          domain: input_boolean
+    light_target:
+      name: Licht
+      description: Das Licht oder der Bereich, der gesteuert werden soll.
+      selector:
+        target:
+          entity:
+            domain: light
+    no_motion_wait:
+      name: Wartezeit (in Sekunden)
+      description: Wie lange soll das Licht anbleiben, nachdem keine Bewegung mehr erkannt wird (nur im Auto-Modus).
+      default: 120
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: seconds
+          mode: box
+
+# Wichtig: Restart sorgt dafür, dass die Wartezeit zurückgesetzt wird, wenn neue Bewegung erkannt wird.
+mode: restart
+max_exceeded: silent
+
+trigger:
+  - platform: state
+    entity_id: !input manual_boolean
+  - platform: state
+    entity_id: !input motion_sensor
+
+action:
+  - choose:
+      # Szenario 1: Manueller Modus ist aktiviert -> Licht AN
+      - conditions:
+          - condition: state
+            entity_id: !input manual_boolean
+            state: "on"
+        sequence:
+          - service: light.turn_on
+            target: !input light_target
+      
+      # Szenario 2: Manueller Modus ist AUS -> Normale Bewegungsmelder-Logik
+      - conditions:
+          - condition: state
+            entity_id: !input manual_boolean
+            state: "off"
+        sequence:
+          - if:
+              - condition: state
+                entity_id: !input motion_sensor
+                state: "on"
+            then:
+              # Bewegung erkannt -> Licht an
+              - service: light.turn_on
+                target: !input light_target
+            else:
+              # Keine Bewegung mehr -> Warten -> Licht aus
+              - delay: !input no_motion_wait
+              # Sicherheitscheck: Ist der manuelle Modus immer noch aus und keine Bewegung?
+              - condition: state
+                entity_id: !input manual_boolean
+                state: "off"
+              - condition: state
+                entity_id: !input motion_sensor
+                state: "off"
+              - service: light.turn_off
+                target: !input light_target
