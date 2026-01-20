@@ -13,7 +13,9 @@ blueprint:
       selector:
         entity:
           domain: binary_sensor
-          device_class: motion
+          device_class: 
+            - motion
+            - occupancy
     manual_boolean:
       name: Manueller Schalter (Input Boolean)
       description: Wenn dieser Helfer "An" ist, bleibt das Licht dauerhaft an.
